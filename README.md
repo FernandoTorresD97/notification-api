@@ -173,5 +173,5 @@ The project demonstrates practical experience with REST API development, layered
 **Fernando Torres**  
 Java Developer | Backend Developer | IT Professional
 
-- GitHub: [github.com/SEU_USUARIO](https://github.com/SEU_USUARIO)
-- LinkedIn: [linkedin.com/in/SEU_USUARIO](https://www.linkedin.com/in/SEU_USUARIO/)
+- GitHub: https://github.com/SEU_USUARIO)](https://github.com/FernandoTorresD97
+- LinkedIn: www.linkedin.com/in/fernandotorresdias
