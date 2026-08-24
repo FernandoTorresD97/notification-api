@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notification API — Painel</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Notification API</h1>
+    <div class="api-config">
+      <label for="apiBaseUrl">API base URL</label>
+      <input id="apiBaseUrl" type="text" value="http://localhost:8080" />
+      <button id="saveApiUrl">Salvar</button>
+      <span id="apiStatus" class="status-dot" title="status da API"></span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <h2>Canais</h2>
+
+      <form id="channelForm" class="inline-form">
+        <input id="channelName" type="text" placeholder="Nome (ex: EMAIL)" required maxlength="30" />
+        <input id="channelDescription" type="text" placeholder="Descrição" maxlength="255" />
+        <label class="checkbox">
+          <input id="channelActive" type="checkbox" checked />
+          Ativo
+        </label>
+        <button type="submit">Criar canal</button>
+      </form>
+
+      <div id="channelsList" class="list"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Notificações</h2>
+
+      <form id="notificationForm" class="stacked-form">
+        <input id="notifTitle" type="text" placeholder="Título" required maxlength="120" />
+        <textarea id="notifMessage" placeholder="Mensagem" required maxlength="1000"></textarea>
+        <input id="notifRecipient" type="text" placeholder="Destinatário (email, telefone...)" required maxlength="120" />
+        <select id="notifChannel" required></select>
+        <label>
+          Agendar para (opcional):
+          <input id="notifScheduledAt" type="datetime-local" />
+        </label>
+        <button type="submit">Criar notificação</button>
+      </form>
+
+      <div class="filter-bar">
+        <label for="statusFilter">Filtrar por status:</label>
+        <select id="statusFilter">
+          <option value="">Todos</option>
+          <option value="PENDING">PENDING</option>
+          <option value="SCHEDULED">SCHEDULED</option>
+          <option value="SENT">SENT</option>
+          <option value="FAILED">FAILED</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+        <button id="refreshNotifications">Atualizar</button>
+      </div>
+
+      <div id="notificationsList" class="list"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
