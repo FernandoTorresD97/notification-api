@@ -1,8 +1,11 @@
 // Notification API frontend — plain JS, no build step required.
 
 const state = {
-  apiBaseUrl: localStorage.getItem("notif_api_base_url") || "http://localhost:8080",
-  channels: [],
+  apiBaseUrl:
+      localStorage.getItem("notif_api_base_url") ||
+      (window.location.hostname === "localhost"
+          ? "http://localhost:8080"
+          : "https://notification-api-il76.onrender.com"),
 };
 
 const el = {
