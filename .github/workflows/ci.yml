@@ -29,3 +29,38 @@ jobs:
           PY
       - name: Verify frontend syntax
         run: node --check frontend/app.js
+      - name: Smoke test the packaged application and Swagger
+        env:
+          DB_HOST: localhost
+          DB_PORT: '15432'
+          DB_NAME: notification_smoke
+          DB_USER: postgres
+          DB_PASSWORD: smoke-only-password
+          NOTIFICATION_DELIVERY_ENABLED: 'false'
+        run: |
+          set -euo pipefail
+          app_pid=''
+          cleanup() {
+            if [ -n "$app_pid" ]; then kill "$app_pid" 2>/dev/null || true; fi
+            docker rm -f notification-smoke-db >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker run --detach --name notification-smoke-db \
+            -e POSTGRES_DB="$DB_NAME" -e POSTGRES_PASSWORD="$DB_PASSWORD" \
+            -p 127.0.0.1:15432:5432 postgres:16-alpine
+          for attempt in $(seq 1 30); do
+            if docker exec notification-smoke-db pg_isready -U postgres -d "$DB_NAME"; then break; fi
+            sleep 2
+          done
+          java -jar target/notification-api.jar > /tmp/notification-smoke.log 2>&1 &
+          app_pid=$!
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://localhost:8080/v3/api-docs > /tmp/notification-openapi.json; then
+              curl --fail --silent http://localhost:8080/api/v1/channels
+              exit 0
+            fi
+            if ! kill -0 "$app_pid" 2>/dev/null; then break; fi
+            sleep 2
+          done
+          cat /tmp/notification-smoke.log
+          exit 1
