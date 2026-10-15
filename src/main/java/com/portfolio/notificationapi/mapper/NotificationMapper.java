@@ -20,7 +20,10 @@ public class NotificationMapper {
                 notification.getScheduledAt(),
                 notification.getSentAt(),
                 notification.getCreatedAt(),
-                notification.getUpdatedAt()
+                notification.getUpdatedAt(),
+                notification.getAttemptCount(),
+                notification.getNextAttemptAt(),
+                notification.getLastError()
         );
     }
 

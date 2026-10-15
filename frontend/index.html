@@ -40,7 +40,7 @@
       <form id="notificationForm" class="stacked-form">
         <input id="notifTitle" type="text" placeholder="Título" required maxlength="120" />
         <textarea id="notifMessage" placeholder="Mensagem" required maxlength="1000"></textarea>
-        <input id="notifRecipient" type="text" placeholder="Destinatário (email, telefone...)" required maxlength="120" />
+        <input id="notifRecipient" type="email" placeholder="Destinatário (e-mail de teste)" required maxlength="120" />
         <select id="notifChannel" required></select>
         <label>
           Agendar para (opcional):
@@ -55,6 +55,7 @@
           <option value="">Todos</option>
           <option value="PENDING">PENDING</option>
           <option value="SCHEDULED">SCHEDULED</option>
+          <option value="RETRYING">RETRYING</option>
           <option value="SENT">SENT</option>
           <option value="FAILED">FAILED</option>
           <option value="CANCELLED">CANCELLED</option>

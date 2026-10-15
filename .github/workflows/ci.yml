@@ -1,24 +1,31 @@
 name: CI
-
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
-
+    branches: [main]
+permissions:
+  contents: read
 jobs:
-  build:
+  verify:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'temurin'
+          distribution: temurin
           cache: maven
-
-      - name: Build and run tests
+      - name: Require Docker for RabbitMQ integration tests
+        run: docker info
+      - name: Verify Java, PostgreSQL, SMTP and RabbitMQ
         run: mvn -B clean verify
+      - name: Require RabbitMQ tests to run
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          suite = ET.parse('target/surefire-reports/TEST-com.portfolio.notificationapi.RabbitTransportIntegrationTest.xml').getroot()
+          assert int(suite.attrib['tests']) == 3 and int(suite.attrib['skipped']) == 0, 'RabbitMQ tests were skipped'
+          PY
+      - name: Verify frontend syntax
+        run: node --check frontend/app.js

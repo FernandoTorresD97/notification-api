@@ -3,7 +3,7 @@
 const state = {
   apiBaseUrl:
       localStorage.getItem("notif_api_base_url") ||
-      (window.location.hostname === "localhost"
+      (["localhost", "127.0.0.1"].includes(window.location.hostname)
           ? "http://localhost:8080"
           : "https://notification-api-il76.onrender.com"),
 };
@@ -224,9 +224,15 @@ function renderNotifications(items) {
           ${n.scheduledAt ? ` · agendada para ${formatDate(n.scheduledAt)}` : ""}
           ${n.sentAt ? ` · enviada em ${formatDate(n.sentAt)}` : ""}
         </div>
+        <div class="card-meta">Tentativas: ${Number(n.attemptCount || 0)}
+          ${n.nextAttemptAt ? ` · próxima: ${formatDate(n.nextAttemptAt)}` : ""}
+          ${n.lastError ? ` · erro: ${escapeHtml(n.lastError)}` : ""}
+        </div>
+        <div data-history="${n.id}" aria-live="polite"></div>
         <div class="card-actions">
+          <button class="secondary history-notif" data-id="${n.id}">Ver tentativas</button>
           ${
-            n.status === "PENDING" || n.status === "SCHEDULED"
+            ["PENDING", "SCHEDULED", "RETRYING"].includes(n.status)
               ? `<button class="secondary cancel-notif" data-id="${n.id}">Cancelar</button>`
               : ""
           }
@@ -236,6 +242,7 @@ function renderNotifications(items) {
     )
     .join("");
 
+  el.notificationsList.querySelectorAll(".history-notif").forEach(btn => btn.addEventListener("click", () => loadAttemptHistory(btn.dataset.id)));
   el.notificationsList.querySelectorAll(".cancel-notif").forEach((btn) =>
     btn.addEventListener("click", () => cancelNotification(btn.dataset.id))
   );
@@ -319,3 +326,17 @@ async function init() {
 
 init();
 setInterval(checkApiHealth, 15000);
+
+async function loadAttemptHistory(id) {
+  const target = el.notificationsList.querySelector(`[data-history="${Number(id)}"]`);
+  try {
+    const attempts = await api(`/api/v1/notifications/${Number(id)}/attempts`);
+    target.replaceChildren();
+    if (!attempts.length) { target.textContent = 'Nenhuma tentativa registrada.'; return; }
+    for (const attempt of attempts) {
+      const row = document.createElement('p');
+      row.textContent = `#${attempt.attemptNumber} · ${attempt.outcome} · ${formatDate(attempt.attemptedAt)}${attempt.errorCode ? ` · ${attempt.errorCode}` : ''}`;
+      target.appendChild(row);
+    }
+  } catch (err) { target.textContent = `Erro ao carregar as tentativas: ${err.message}`; }
+}

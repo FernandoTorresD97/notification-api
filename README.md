@@ -1,177 +1,95 @@
-# Notification API
+# Notification API — processamento confiável
 
-REST API for scheduling and managing notifications, built and developed by Fernando Torres with **Java 21**, **Spring Boot 3** and **PostgreSQL**.
+[![CI](https://github.com/FernandoTorresD97/notification-api/actions/workflows/ci.yml/badge.svg)](https://github.com/FernandoTorresD97/notification-api/actions/workflows/ci.yml)
 
-The API lets clients register delivery **channels** (email, SMS, push, etc.), create notifications targeted at those channels, schedule them for future delivery, and automatically dispatches due notifications through a background scheduler.
+Projeto de portfólio de Fernando Torres, com Java 21, Spring Boot, PostgreSQL, RabbitMQ e SMTP de teste.
 
-## Features
+## Fluxo implementado
 
-- CRUD for notification **channels**
-- Create, list (paginated & filterable by status), cancel and delete **notifications**
-- Automatic status lifecycle: `PENDING → SCHEDULED → SENT / FAILED / CANCELLED`
-- Background **scheduled task** that dispatches due notifications every 30 seconds
-- Startup **data seeding** (`DataLoader`) with default channels (EMAIL, SMS, PUSH)
-- Bean Validation on all input DTOs
-- Centralized exception handling with consistent JSON error responses
-- Interactive API documentation via **Swagger / OpenAPI**
-- Unit tests with **JUnit 5** and **Mockito**
-- Containerized with **Docker** and **Docker Compose** (API + PostgreSQL + frontend)
-- **GitHub Actions** CI pipeline running the test suite on every push
-- A lightweight **frontend** (`/frontend`) to manage channels and notifications from the browser — plain HTML/CSS/JS, no build step
+`API → PostgreSQL → scheduler → RabbitMQ → consumer → SMTP / Mailpit`
 
-## Tech Stack
+- Notificações imediatas e agendadas usam o mesmo fluxo.
+- O envio SMTP produz um histórico persistente, consultável por notificação.
+- Falhas temporárias geram retentativas com intervalo exponencial; o padrão é de três tentativas, com intervalos de 5 e 10 segundos.
+- Ao esgotar as tentativas, a notificação fica FAILED e seu ID é publicado na fila `notifications.email.dead`.
+- As filas são duráveis, as mensagens são persistentes e a publicação exige confirmação e roteamento pelo broker.
+- Uma falha do RabbitMQ não remove a notificação do banco. O scheduler volta a publicá-la depois.
+- Um lock de linha serializa entrega, cancelamento e exclusão de cada notificação.
+- Uma mensagem repetida após o sucesso não gera outro envio. `Idempotency-Key` também permite evitar duplicação na criação.
+- Flyway cria o esquema e migra uma base da versão anterior preservando as notificações; essa migração é testada.
 
-| Layer            | Technology                         |
-|------------------|------------------------------------|
-| Language         | Java 21                            |
-| Framework        | Spring Boot 3 (Web, Data JPA, Validation) |
-| Database         | PostgreSQL                         |
-| ORM              | Hibernate / Spring Data JPA        |
-| Build            | Maven                              |
-| Documentation    | springdoc-openapi (Swagger UI)     |
-| Testing          | JUnit 5, Mockito, AssertJ          |
-| Containerization | Docker, Docker Compose             |
-| CI               | GitHub Actions                     |
-| Frontend         | Vanilla HTML/CSS/JS (fetch API)    |
+Somente EMAIL tem envio implementado. SMS e PUSH são rejeitados e não são apresentados como entregues.
 
-## Architecture
+## Laboratório completo
 
-Simple layered architecture:
-
-```
-Controller → Service → Repository → Database
-```
-
-with DTOs (Java records) for input/output, a dedicated mapper for entity-to-DTO conversion, and a global exception handler translating domain exceptions into consistent HTTP error responses.
-
-```
-notification-api/
-├── .github/workflows/ci.yml
-├── src/
-│   ├── main/
-│   │   ├── java/com/portfolio/notificationapi/
-│   │   │   ├── config/        # DataLoader, OpenAPI config
-│   │   │   ├── controller/    # REST controllers
-│   │   │   ├── dto/           # Request/response records
-│   │   │   ├── entity/        # JPA entities (Notification, Channel, NotificationStatus)
-│   │   │   ├── exception/     # Custom exceptions + global handler
-│   │   │   ├── mapper/        # Entity <-> DTO mapping
-│   │   │   ├── repository/    # Spring Data JPA repositories
-│   │   │   ├── scheduler/     # Notification dispatch scheduler
-│   │   │   └── service/       # Business logic
-│   │   └── resources/application.yml
-│   └── test/
-├── docker-compose.yml
-├── Dockerfile
-└── pom.xml
-```
-
-## Getting Started
-
-### Prerequisites
-
-- JDK 21
-- Maven 3.9+
-- Docker & Docker Compose (optional, for containerized run)
-
-### Run with Docker Compose (recommended)
+Requer Docker Engine com Compose:
 
 ```bash
 docker compose up --build
 ```
 
-This starts PostgreSQL, the API and the frontend together:
-- API: `http://localhost:8080`
-- Frontend: `http://localhost:3000`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
+| Serviço | Endereço |
+|---|---|
+| Painel | http://localhost:3000 |
+| Swagger | http://localhost:8080/swagger-ui.html |
+| Caixa Mailpit | http://localhost:8025 |
+| RabbitMQ Management | http://localhost:15672 |
 
-### Run locally
+O Mailpit captura as mensagens localmente, sem entregá-las à internet. Use endereços fictícios como `customer@example.invalid`. O RabbitMQ local usa `notification` / `local-notification-broker`; os valores podem ser alterados em `.env` a partir de `.env.example`. Os serviços publicados ficam restritos ao loopback. PostgreSQL e RabbitMQ usam volumes persistentes.
 
-1. Start a PostgreSQL instance and create a `notification_db` database.
-2. Set the connection environment variables if they differ from the defaults (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`).
-3. Run the application:
+## Uso da API
+
+Consulte `GET /api/v1/channels` para descobrir o ID de EMAIL. Depois crie uma notificação:
+
+```json
+{
+  "title": "Pedido confirmado",
+  "message": "Mensagem de teste",
+  "recipient": "customer@example.invalid",
+  "channelId": 1
+}
+```
+
+Envie esse JSON por `POST /api/v1/notifications`. Opcionalmente inclua `Idempotency-Key: order-demo-123-confirmed`. Repetir a mesma chave e corpo retorna a notificação existente; outra combinação de dados com a mesma chave é rejeitada. Em uma corrida entre criações, a restrição única impede duplicação; repita um 409 com a mesma chave.
+
+- `GET /api/v1/notifications/{id}`: estado, contagem e próxima tentativa.
+- `GET /api/v1/notifications/{id}/attempts`: número, horário, resultado e código de erro das tentativas.
+- `PATCH /api/v1/notifications/{id}/cancel`: impede tentativas futuras de uma notificação ainda não enviada.
+- `GET /api/v1/notifications?status=RETRYING`: lista falhas temporárias.
+
+`scheduledAt` é uma data/hora sem offset, na zona do processo. O Compose define UTC. SENT significa aceito pelo servidor SMTP, sem garantir leitura ou entrega final ao destinatário.
+
+## Demonstrar falhas e recuperação
+
+1. Execute `docker compose stop mailpit`.
+2. Crie uma notificação e acompanhe RETRYING e `/attempts`.
+3. Execute `docker compose start mailpit` antes de esgotar as tentativas.
+4. Confira uma tentativa SMTP_ACCEPTED e a mensagem na caixa de teste.
+5. Mantendo o SMTP indisponível, após três tentativas o estado será FAILED e o ID ficará na DLQ.
+
+Os IDs da DLQ são inspecionáveis pelo RabbitMQ Management. Não há reenvio manual automático implementado. Ao interromper o RabbitMQ, notificações novas continuam no banco e voltam ao processamento após a recuperação do broker.
+
+## Garantias e limites
+
+O processamento é pelo menos uma vez. Uma queda depois da aceitação SMTP, mas antes do commit no banco, pode resultar em e-mail duplicado. A DLQ também pode receber um ID repetido após uma falha entre confirmação e persistência. Não há promessa de exatamente uma entrega ao provedor.
+
+A transação mantém o lock por notificação durante a chamada SMTP; os timeouts de conexão, leitura e escrita são de cinco segundos. Essa escolha simplifica o laboratório e limita a concorrência; uma implantação de maior escala deve avaliar outro mecanismo de reserva de trabalho.
+
+O histórico contém códigos genéricos de erro. Destinatário e conteúdo não são registrados nos logs de entrega. A API existente não tem autenticação: mantenha o laboratório local. Uma API pública de envio real exige controle de acesso, limites de uso e gestão de segredos.
+
+## Configuração e testes
 
 ```bash
+mvn verify
 mvn spring-boot:run
 ```
 
-### API Documentation
+O processamento fica desligado por padrão (`NOTIFICATION_DELIVERY_ENABLED=false`). Habilite-o com PostgreSQL, RabbitMQ e SMTP de teste configurados. O Compose faz essa configuração para o laboratório.
 
-Once running, Swagger UI is available at:
+Variáveis: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `NOTIFICATION_DELIVERY_ENABLED`.
 
-```
-http://localhost:8080/swagger-ui.html
-```
+As propriedades `notification.delivery.max-attempts`, `initial-delay-seconds` e `max-delay-seconds` controlam as retentativas. Flyway usa baseline 1 para a base anterior e aplica V2; faça backup de dados importantes antes de uma migração real.
 
-## Example Requests
+Os testes usam PostgreSQL 16 temporário e SMTP GreenMail, sem precisar instalar PostgreSQL. Sem Docker, os testes de transporte RabbitMQ são explicitamente ignorados; o CI exige Docker e verifica que eles rodaram. O CI não provisiona hospedagem nem serviços pagos. O Compose completo precisa ser validado em um ambiente com Docker.
 
-Create a channel:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/channels \
-  -H "Content-Type: application/json" \
-  -d '{"name": "EMAIL", "description": "Email notifications", "active": true}'
-```
-
-Create a notification:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/notifications \
-  -H "Content-Type: application/json" \
-  -d '{
-        "title": "Welcome!",
-        "message": "Thanks for signing up.",
-        "recipient": "user@example.com",
-        "channelId": 1,
-        "scheduledAt": "2026-09-01T10:00:00"
-      }'
-```
-
-List notifications by status:
-
-```bash
-curl "http://localhost:8080/api/v1/notifications?status=PENDING&page=0&size=10"
-```
-
-Cancel a notification:
-
-```bash
-curl -X PATCH http://localhost:8080/api/v1/notifications/1/cancel
-```
-
-## Running Tests
-
-```bash
-mvn test
-```
-
-## Notes / Lessons Learned
-
-While building this project, an `IdentifierGenerationException` was hit on the `Channel` entity: it was originally mapped with `GenerationType.SEQUENCE` without a matching `@SequenceGenerator`, so Hibernate could not resolve the sequence name against PostgreSQL at startup. The fix was switching to `GenerationType.IDENTITY`, letting PostgreSQL manage the auto-incrementing column directly — a good reminder to always match the ID generation strategy to what the target database actually supports.
-
-## Frontend
-
-A small browser UI lives in `/frontend` (plain HTML/CSS/JS, no build step) for managing channels and notifications without needing Swagger or curl. Run it either via `docker compose up --build` (see above) or by opening `frontend/index.html` directly in a browser and pointing the "API base URL" field at your running backend.
-
-## Deployment
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for a step-by-step guide to deploying the full stack for free (Render for the API + PostgreSQL, Netlify for the frontend), plus a Docker Compose option for self-hosting on a VPS.
-
-## License
-
-This project is available for portfolio and educational purposes.
-
-
-## About the Project
-
-This project was designed and developed by **Fernando Torres** as a backend portfolio project, with a focus on building a production-oriented REST API using Java and Spring Boot.
-
-The project demonstrates practical experience with REST API development, layered architecture, database persistence, validation, exception handling, automated testing, scheduled background processing, Docker containerization and CI/CD.
-
-## Author
-
-**Fernando Torres**  
-Java Developer | Backend Developer | IT Professional
-
-- GitHub: https://github.com/FernandoTorresD97
-- LinkedIn: www.linkedin.com/in/fernandotorresdias
+A integração da Art Pizza com esta API ainda não está implementada. Ela será a próxima entrega, usando uma chave idempotente por evento de pedido.

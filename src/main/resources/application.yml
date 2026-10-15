@@ -13,13 +13,36 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
     open-in-view: false
+
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 1
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:1025}
+    properties:
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        auto-startup: ${notification.delivery.enabled:false}
+        default-requeue-rejected: false
+        prefetch: 10
 
   jackson:
     default-property-inclusion: non_null
@@ -33,10 +56,17 @@ springdoc:
     path: /v3/api-docs
 
 notification:
+  delivery:
+    enabled: ${NOTIFICATION_DELIVERY_ENABLED:false}
+    from: ${SMTP_FROM:demo@example.invalid}
+    max-attempts: 3
+    initial-delay-seconds: 5
+    max-delay-seconds: 300
+    batch-size: 100
   scheduler:
-    fixed-delay-ms: 30000
+    fixed-delay-ms: 5000
 
 logging:
   level:
-    com.portfolio.notificationapi: DEBUG
-    org.hibernate.SQL: DEBUG
+    com.portfolio.notificationapi: INFO
+    org.hibernate.SQL: WARN

@@ -27,6 +27,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), List.of());
     }
 
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleConflict(Exception ex) {
+        return buildResponse(HttpStatus.CONFLICT,"Concurrent or conflicting request; retry using the same Idempotency-Key",List.of());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex) {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected error occurred", List.of());

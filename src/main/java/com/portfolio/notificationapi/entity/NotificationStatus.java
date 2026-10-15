@@ -6,6 +6,7 @@ package com.portfolio.notificationapi.entity;
 public enum NotificationStatus {
     PENDING,
     SCHEDULED,
+    RETRYING,
     SENT,
     FAILED,
     CANCELLED

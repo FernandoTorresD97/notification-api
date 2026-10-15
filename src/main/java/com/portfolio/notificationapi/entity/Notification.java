@@ -18,6 +18,23 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "idempotency_key", unique = true, length = 120)
+    private String idempotencyKey;
+
+    @Column(name = "attempt_count", nullable = false)
+    @Builder.Default
+    private int attemptCount = 0;
+
+    @Column(name = "next_attempt_at")
+    private LocalDateTime nextAttemptAt;
+
+    @Column(name = "last_error", length = 80)
+    private String lastError;
+
+    @Column(name = "dead_letter_pending", nullable = false)
+    @Builder.Default
+    private boolean deadLetterPending = false;
+
     @Column(nullable = false, length = 120)
     private String title;
 

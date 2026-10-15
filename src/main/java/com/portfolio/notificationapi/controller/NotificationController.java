@@ -26,8 +26,9 @@ public class NotificationController {
 
     @PostMapping
     @Operation(summary = "Create (and optionally schedule) a notification")
-    public ResponseEntity<NotificationResponse> create(@Valid @RequestBody NotificationRequest request) {
-        NotificationResponse response = notificationService.create(request);
+    public ResponseEntity<NotificationResponse> create(@Valid @RequestBody NotificationRequest request,
+            @RequestHeader(value="Idempotency-Key",required=false) String key) {
+        NotificationResponse response = notificationService.create(request, key);
         return ResponseEntity.created(URI.create("/api/v1/notifications/" + response.id())).body(response);
     }
 
@@ -54,6 +55,12 @@ public class NotificationController {
     @Operation(summary = "Cancel a pending or scheduled notification")
     public ResponseEntity<NotificationResponse> cancel(@PathVariable Long id) {
         return ResponseEntity.ok(notificationService.cancel(id));
+    }
+
+    @GetMapping("/{id}/attempts")
+    @Operation(summary = "Inspect persisted delivery attempts")
+    public java.util.List<com.portfolio.notificationapi.dto.DeliveryAttemptResponse> history(@PathVariable Long id) {
+        return notificationService.history(id);
     }
 
     @DeleteMapping("/{id}")

@@ -1,43 +1,64 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: notification-db
     environment:
       POSTGRES_DB: notification_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-local-notification-db}
     volumes:
       - notification_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-notification}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-local-notification-broker}
+    volumes:
+      - notification_rabbitdata:/var/lib/rabbitmq
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
       timeout: 5s
-      retries: 5
-
+      retries: 30
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "127.0.0.1:8025:8025"
   app:
     build: .
-    container_name: notification-api
     depends_on:
       db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     environment:
+      TZ: UTC
       DB_HOST: db
-      DB_PORT: 5432
-      DB_NAME: notification_db
       DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-local-notification-db}
+      NOTIFICATION_DELIVERY_ENABLED: 'true'
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-notification}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-local-notification-broker}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: demo@example.invalid
     ports:
-      - "8080:8080"
-
+      - "127.0.0.1:8080:8080"
   frontend:
     build: ./frontend
-    container_name: notification-frontend
+    ports:
+      - "127.0.0.1:3000:80"
     depends_on:
       - app
-    ports:
-      - "3000:80"
-
 volumes:
   notification_pgdata:
+  notification_rabbitdata:

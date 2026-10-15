@@ -1,53 +1,33 @@
 package com.portfolio.notificationapi.scheduler;
-
-import com.portfolio.notificationapi.entity.Notification;
-import com.portfolio.notificationapi.service.NotificationService;
+import com.portfolio.notificationapi.delivery.*;
+import com.portfolio.notificationapi.config.DeliveryProperties;
+import com.portfolio.notificationapi.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
-
-/**
- * Periodically looks for SCHEDULED notifications whose scheduledAt time has
- * passed and dispatches them. The actual delivery mechanism (email/SMS/push
- * provider integration) is intentionally abstracted here — in the original
- * project this simulated dispatch by logging; swap simulateDelivery() for a
- * real provider client to make this production-ready.
- */
-@Slf4j
-@Component
-@RequiredArgsConstructor
+import java.time.*;
+@Component @Slf4j @RequiredArgsConstructor
+@ConditionalOnProperty(name="notification.delivery.enabled",havingValue="true")
 public class NotificationDispatcher {
-
-    private final NotificationService notificationService;
-
-    @Scheduled(fixedDelayString = "${notification.scheduler.fixed-delay-ms:30000}")
-    public void dispatchDueNotifications() {
-        List<Notification> due = notificationService.findDueNotifications();
-
-        if (due.isEmpty()) {
-            return;
+    private final NotificationRepository notifications;
+    private final DeliveryPublisher publisher;
+    private final DeliveryWorker worker;
+    private final DeliveryProperties properties;
+    private final Clock clock;
+    @Scheduled(fixedDelayString="${notification.scheduler.fixed-delay-ms:5000}")
+    public void dispatchDueNotifications(){
+        var page=PageRequest.of(0,properties.getBatchSize());
+        // The database remains the durable source of work. A broker outage
+        // never marks a notification sent or removes it from future scans.
+        for(Long id:notifications.findReadyIds(DeliveryWorker.READY,LocalDateTime.now(clock),page)){
+            try{publisher.publish(id);}catch(RuntimeException ex){log.warn("notification={} publication deferred ({})",id,ex.getClass().getSimpleName());break;}
         }
-
-        log.info("Dispatching {} due notification(s)", due.size());
-
-        for (Notification notification : due) {
-            try {
-                simulateDelivery(notification);
-                notificationService.markAsSent(notification);
-                log.info("Notification {} sent via {}", notification.getId(),
-                        notification.getChannel().getName());
-            } catch (Exception ex) {
-                notificationService.markAsFailed(notification);
-                log.error("Failed to send notification {}", notification.getId(), ex);
-            }
+        for(var n:notifications.findByDeadLetterPendingTrue(page)){
+            try{publisher.deadLetter(n.getId());worker.acknowledgeDeadLetter(n.getId());}
+            catch(RuntimeException ex){log.warn("notification={} dead-letter publication deferred",n.getId());break;}
         }
-    }
-
-    private void simulateDelivery(Notification notification) {
-        log.debug("Sending '{}' to {} via {}", notification.getTitle(),
-                notification.getRecipient(), notification.getChannel().getName());
     }
 }

@@ -19,6 +19,7 @@ public record NotificationRequest(
 
         @NotBlank(message = "recipient is required")
         @Size(max = 120)
+        @jakarta.validation.constraints.Email(message = "recipient must be an email address")
         String recipient,
 
         @NotNull(message = "channelId is required")

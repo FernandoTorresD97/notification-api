@@ -14,6 +14,9 @@ public record NotificationResponse(
         LocalDateTime scheduledAt,
         LocalDateTime sentAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        int attemptCount,
+        LocalDateTime nextAttemptAt,
+        String lastError
 ) {
 }

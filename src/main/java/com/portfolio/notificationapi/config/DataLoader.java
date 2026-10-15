@@ -24,8 +24,8 @@ public class DataLoader implements CommandLineRunner {
 
         channelRepository.saveAll(java.util.List.of(
                 Channel.builder().name("EMAIL").description("Email notifications").active(true).build(),
-                Channel.builder().name("SMS").description("SMS text notifications").active(true).build(),
-                Channel.builder().name("PUSH").description("Mobile push notifications").active(true).build()
+                Channel.builder().name("SMS").description("Not implemented").active(false).build(),
+                Channel.builder().name("PUSH").description("Not implemented").active(false).build()
         ));
     }
 }
