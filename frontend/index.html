@@ -19,6 +19,17 @@
 
   <main class="layout">
     <section class="panel">
+      <h2>Acesso administrativo</h2>
+      <p>Use credenciais do seu ambiente. Elas ficam apenas na memória desta aba. O Swagger e a consulta de canais são públicos; notificações e alterações exigem autenticação.</p>
+      <form id="loginForm" class="inline-form">
+        <input id="authUsername" autocomplete="username" placeholder="Usuário" required />
+        <input id="authPassword" type="password" autocomplete="current-password" placeholder="Senha" required />
+        <button type="submit">Entrar</button>
+        <button id="logoutButton" type="button">Sair</button>
+      </form>
+      <p id="authStatus" aria-live="polite">Não autenticado.</p>
+    </section>
+    <section class="panel">
       <h2>Canais</h2>
 
       <form id="channelForm" class="inline-form">

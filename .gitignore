@@ -30,3 +30,6 @@ Thumbs.db
 .env.*
 *.log
 !.env.example
+backups/
+*.dump
+__pycache__/

@@ -6,9 +6,9 @@
 - Swagger: https://notification-api-il76.onrender.com/swagger-ui.html
 - Canais: https://notification-api-il76.onrender.com/api/v1/channels
 
-O ambiente público demonstra cadastro, consulta, agendamento, cancelamento e histórico. O processamento de entrega está desligado por padrão (NOTIFICATION_DELIVERY_ENABLED=false): notificações podem permanecer PENDING ou SCHEDULED sem tentativas. Não é um serviço público de envio de e-mails.
+O ambiente público oferece cadastro, consulta, agendamento, cancelamento e histórico mediante autenticação administrativa. Sem credenciais configuradas no Render, essas funções ficam bloqueadas. O processamento de entrega está desligado por padrão (NOTIFICATION_DELIVERY_ENABLED=false): notificações podem permanecer PENDING ou SCHEDULED sem tentativas. Não é um serviço público de envio de e-mails.
 
-O laboratório completo com RabbitMQ e SMTP de teste está documentado no [README](README.md). A integração com Art Pizza e pagamentos sandbox ainda não está implementada.
+O laboratório completo com RabbitMQ e SMTP de teste está documentado no [README](README.md). O repositório Art Pizza contém o laboratório integrado e um simulador local de pagamentos. Nenhum provedor externo de pagamentos está conectado.
 
 ## API e PostgreSQL no Render
 
@@ -35,8 +35,8 @@ Serviços web gratuitos podem suspender por inatividade. O Render também bloque
 
 O painel em frontend/ é HTML/CSS/JS e pode ser servido localmente ou em hospedagem estática. Sua URL da API é configurável na interface; o padrão público aponta para o Render. Ele não é publicado automaticamente pelo workflow atual, e o link Swagger é a demonstração pública disponível.
 
-A API ainda não possui autenticação nem limites de uso, e o CORS permite todas as origens. Use apenas dados fictícios. Antes de habilitar envio público real, implemente controle de acesso, limites de uso e origens permitidas. O CORS isoladamente não protege uma API sem autenticação.
+A API exige HTTP Basic e distingue ADMIN de INTEGRATION. Configure NOTIFICATION_ADMIN_USERNAME/PASSWORD e NOTIFICATION_INTEGRATION_USERNAME/PASSWORD em Environment; senhas precisam de pelo menos 16 caracteres. Sem configuração, não há conta padrão. O Swagger e GET de canais permanecem públicos. O envio real continua desligado; antes de habilitá-lo, acrescente limites de uso e restrinja as origens permitidas. Não use dados pessoais na demonstração.
 
 ## Validação automática
 
-O GitHub Actions executa os 28 testes, exige Docker para os testes RabbitMQ, verifica a sintaxe do painel e inicia o JAR compilado com PostgreSQL descartável. Essa validação não substitui conferir os segredos e a disponibilidade dos serviços no Render.
+O GitHub Actions executa os testes funcionais e de permissões, exige Docker para RabbitMQ, verifica a sintaxe do painel e inicia o JAR compilado com PostgreSQL descartável. Também testa a migração para outra base vazia. Essa validação não substitui conferir os segredos e a disponibilidade dos serviços no Render.

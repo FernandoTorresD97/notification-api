@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties={"notification.delivery.enabled=false","spring.rabbitmq.listener.simple.auto-startup=false"})
 @AutoConfigureMockMvc @Import(ReliableDeliveryIntegrationTest.TestConfig.class)
+@org.springframework.security.test.context.support.WithMockUser(roles="ADMIN")
 class ReliableDeliveryIntegrationTest {
     static final EmbeddedPostgres PG=startDatabase();
     static final GreenMail MAIL=new GreenMail(new ServerSetup(0,"127.0.0.1",ServerSetup.PROTOCOL_SMTP));

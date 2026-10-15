@@ -10,7 +10,11 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI notificationApiOpenAPI() {
-        return new OpenAPI().info(new Info()
+        return new OpenAPI()
+                .components(new io.swagger.v3.oas.models.Components().addSecuritySchemes("basicAuth",
+                    new io.swagger.v3.oas.models.security.SecurityScheme().type(io.swagger.v3.oas.models.security.SecurityScheme.Type.HTTP).scheme("basic")))
+                .addSecurityItem(new io.swagger.v3.oas.models.security.SecurityRequirement().addList("basicAuth"))
+                .info(new Info()
                 .title("Notification API")
                 .description("REST API for scheduling and managing notifications")
                 .version("v1.0.0"));

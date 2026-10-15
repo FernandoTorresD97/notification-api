@@ -10,6 +10,9 @@ spring:
     username: ${DB_USER:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: 0
 
   jpa:
     hibernate:
@@ -56,6 +59,11 @@ springdoc:
     path: /v3/api-docs
 
 notification:
+  security:
+    admin-username: ${NOTIFICATION_ADMIN_USERNAME:}
+    admin-password: ${NOTIFICATION_ADMIN_PASSWORD:}
+    integration-username: ${NOTIFICATION_INTEGRATION_USERNAME:}
+    integration-password: ${NOTIFICATION_INTEGRATION_PASSWORD:}
   delivery:
     enabled: ${NOTIFICATION_DELIVERY_ENABLED:false}
     from: ${SMTP_FROM:demo@example.invalid}

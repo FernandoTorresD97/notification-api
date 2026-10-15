@@ -39,6 +39,16 @@ O Mailpit captura as mensagens localmente, sem entregá-las à internet. Use end
 
 ## Uso da API
 
+### Autenticação
+
+Swagger e consultas de canais são públicos. Criar, ler, cancelar e excluir notificações exige HTTP Basic sobre HTTPS (HTTP apenas no laboratório local). O painel mantém as credenciais somente na memória da aba, sem salvá-las em localStorage.
+
+- `NOTIFICATION_ADMIN_USERNAME` e `NOTIFICATION_ADMIN_PASSWORD`: administração de notificações e canais.
+- `NOTIFICATION_INTEGRATION_USERNAME` e `NOTIFICATION_INTEGRATION_PASSWORD`: conta separada da Art Pizza, autorizada somente a criar notificações e consultar canais. Não pode listar destinatários, cancelar, excluir ou administrar canais.
+- Cada senha precisa ter pelo menos 16 caracteres. Use nomes distintos. Não há senha padrão: variáveis vazias deixam a conta inexistente e os endpoints protegidos continuam bloqueados.
+
+Antes do Compose, copie `.env.example` para `.env` e preencha as senhas locais. No Render, configure as quatro variáveis em Environment antes de usar as funções protegidas; não coloque senhas no frontend ou no Git. No Swagger, use **Authorize**. A autenticação é stateless e não cria cookies de sessão.
+
 Consulte `GET /api/v1/channels` para descobrir o ID de EMAIL. Depois crie uma notificação:
 
 ```json
@@ -75,7 +85,7 @@ O processamento é pelo menos uma vez. Uma queda depois da aceitação SMTP, mas
 
 A transação mantém o lock por notificação durante a chamada SMTP; os timeouts de conexão, leitura e escrita são de cinco segundos. Essa escolha simplifica o laboratório e limita a concorrência; uma implantação de maior escala deve avaliar outro mecanismo de reserva de trabalho.
 
-O histórico contém códigos genéricos de erro. Destinatário e conteúdo não são registrados nos logs de entrega. A API existente não tem autenticação: mantenha o laboratório local. Uma API pública de envio real exige controle de acesso, limites de uso e gestão de segredos.
+O histórico contém códigos genéricos de erro. Destinatário e conteúdo não são registrados nos logs de entrega. A API separa administração e integração por permissões. Uma API pública de envio real também exige limites de uso, política de retenção e gestão de segredos.
 
 ## Configuração e testes
 
@@ -92,4 +102,8 @@ As propriedades `notification.delivery.max-attempts`, `initial-delay-seconds` e 
 
 Os testes usam PostgreSQL 16 temporário e SMTP GreenMail, sem precisar instalar PostgreSQL. Sem Docker, os testes de transporte RabbitMQ são explicitamente ignorados; o CI exige Docker e verifica que eles rodaram. O CI não provisiona hospedagem nem serviços pagos. O Compose completo precisa ser validado em um ambiente com Docker.
 
-A integração da Art Pizza com esta API ainda não está implementada. Ela será a próxima entrega, usando uma chave idempotente por evento de pedido.
+A Art Pizza possui uma outbox transacional e cliente HTTP autenticado para esta API. O laboratório integrado e sua verificação ponta a ponta estão no repositório Art Pizza, em `compose.integration.yaml` e `scripts/verify-integration.py`. A integração fica desligada por padrão fora do laboratório. A confirmação HTTP registra a notificação; o resultado SMTP é assíncrono e consultável no histórico.
+
+## Migração do banco
+
+O [plano de migração](docs/MIGRATION.md) prepara a troca do PostgreSQL gratuito do Render por outro PostgreSQL, como o plano gratuito do Neon. O script `scripts/migrate-postgres.py` faz backup, restaura em um destino vazio e compara contagens. Ele não provisiona contas nem muda o Render automaticamente. O CI testa a cópia entre duas bases descartáveis e a recusa de destino preenchido.

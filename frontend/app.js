@@ -46,9 +46,16 @@ function showToast(message, type) {
 }
 
 async function api(path, options) {
+  if (state.authorization) {
+    const target = new URL(state.apiBaseUrl);
+    if (target.protocol !== 'https:' && !(target.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(target.hostname))) {
+      throw new Error('Autenticação exige HTTPS fora do ambiente local.');
+    }
+  }
   const res = await fetch(`${state.apiBaseUrl}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...options,
+    credentials: "omit",
+    headers: { "Content-Type": "application/json", ...(state.authorization ? { Authorization: state.authorization } : {}) },
   });
 
   if (res.status === 204) {
@@ -304,7 +311,16 @@ el.statusFilter.addEventListener("change", loadNotifications);
 el.refreshNotifications.addEventListener("click", loadNotifications);
 
 el.saveApiUrl.addEventListener("click", () => {
-  state.apiBaseUrl = el.apiBaseUrl.value.trim().replace(/\/$/, "");
+  let base;
+  try {
+    base = new URL(el.apiBaseUrl.value.trim());
+    if (base.username || base.password || base.search || base.hash ||
+        (base.protocol !== 'https:' && !(base.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(base.hostname)))) throw new Error();
+  } catch { showToast('Informe uma URL HTTPS válida (HTTP somente em localhost).', 'error'); return; }
+  state.authorization = undefined;
+  document.getElementById('authStatus').textContent = 'Não autenticado.';
+  el.notificationsList.replaceChildren();
+  state.apiBaseUrl = base.href.replace(/\/$/, "");
   localStorage.setItem("notif_api_base_url", state.apiBaseUrl);
   showToast("URL da API atualizada.", "success");
   init();
@@ -323,6 +339,30 @@ async function init() {
   await loadChannels();
   await loadNotifications();
 }
+
+document.getElementById('loginForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  el.notificationsList.replaceChildren();
+  const username = document.getElementById('authUsername').value;
+  const password = document.getElementById('authPassword').value;
+  const bytes = new TextEncoder().encode(`${username}:${password}`);
+  state.authorization = `Basic ${btoa(String.fromCharCode(...bytes))}`;
+  document.getElementById('authPassword').value = '';
+  try {
+    await api('/api/v1/notifications?size=1');
+    document.getElementById('authStatus').textContent = `Autenticado como ${username}.`;
+    await init();
+  } catch {
+    state.authorization = undefined;
+    document.getElementById('authStatus').textContent = 'Acesso recusado. Confira suas credenciais de administrador.';
+  }
+});
+document.getElementById('logoutButton').addEventListener('click', () => {
+  state.authorization = undefined;
+  document.getElementById('authPassword').value = '';
+  document.getElementById('authStatus').textContent = 'Não autenticado.';
+  el.notificationsList.replaceChildren();
+});
 
 init();
 setInterval(checkApiHealth, 15000);
