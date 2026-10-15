@@ -92,7 +92,7 @@ async function loadChannels() {
     renderChannelOptions();
     el.apiStatus.className = "status-dot online";
   } catch (err) {
-    el.channelsList.innerHTML = `<div class="empty-state">Não foi possível carregar os canais (${err.message}).</div>`;
+    el.channelsList.innerHTML = `<div class="empty-state">Não foi possível carregar os canais (${escapeHtml(err.message)}).</div>`;
     el.apiStatus.className = "status-dot offline";
   }
 }
@@ -197,7 +197,7 @@ async function loadNotifications() {
     const page = await api(`/api/v1/notifications${query}`);
     renderNotifications(page.content || []);
   } catch (err) {
-    el.notificationsList.innerHTML = `<div class="empty-state">Não foi possível carregar notificações (${err.message}).</div>`;
+    el.notificationsList.innerHTML = `<div class="empty-state">Não foi possível carregar notificações (${escapeHtml(err.message)}).</div>`;
   }
 }
 
