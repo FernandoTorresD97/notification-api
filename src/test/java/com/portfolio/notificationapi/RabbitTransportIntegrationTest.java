@@ -29,7 +29,7 @@ class RabbitTransportIntegrationTest {
     @Test void publisherConfirmsPersistentDeliveryWithStableId(){
         publisher.publish(42L);var message=rabbit.receive(RabbitDeliveryConfig.QUEUE,5000);
         assertThat(message).isNotNull();assertThat(new String(message.getBody(),java.nio.charset.StandardCharsets.UTF_8)).isEqualTo("42");
-        assertThat(message.getMessageProperties().getDeliveryMode()).isEqualTo(MessageDeliveryMode.PERSISTENT);
+        assertThat(message.getMessageProperties().getReceivedDeliveryMode()).isEqualTo(MessageDeliveryMode.PERSISTENT);
         assertThat(message.getMessageProperties().getMessageId()).isEqualTo("notification-42");
     }
     @Test void failedNotificationIsRoutedToDurableDeadLetterQueue(){publisher.deadLetter(45L);assertThat(rabbit.receive(RabbitDeliveryConfig.DLQ,5000)).isNotNull();}
